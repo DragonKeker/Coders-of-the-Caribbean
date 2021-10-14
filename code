@@ -1,0 +1,104 @@
+import sys
+import math
+
+class Coord():
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def add(self, other):
+        return Coord(self.x + other.x, self.y + other.y)
+
+DIRECTIONS = [
+    [Coord(1, 0), Coord(0, -1), Coord(-1, -1), Coord(-1, 0), Coord(-1, 1), Coord(0, 1)],
+    [Coord(1, 0), Coord(1, -1), Coord(0, -1), Coord(-1, 0), Coord(0, 1), Coord(1, 1)] 
+]
+
+class Entity():
+    def __init__(self, id, x, y):
+        self.x = x
+        self.y = y
+        self.id = id
+
+class Ship():
+    def __init__(self, id, x, y, orientation, speed, rum):
+        self.x = x
+        self.y = y
+        self.id = id
+        self.orientation = orientation
+        self.speed = speed
+        self.rum = rum 
+        self.front = DIRECTIONS[y % 2][orientation].add(self)
+
+def sqare_distance(a, b):
+    return (a.x - b.x)**2 + (a.y - b.y)**2
+
+# game loop
+while True:
+    my_ship_count = int(input())  # the number of remaining ships
+    entity_count = int(input())  # the number of entities (e.g. ships, mines or cannonballs)
+
+    barrels = []
+    my_ships = []
+    foe_ships = []
+    mines = []
+
+    for i in range(entity_count):
+        entity_id, entity_type, x, y, arg_1, arg_2, arg_3, arg_4 = input().split()
+        entity_id = int(entity_id)
+        x = int(x)
+        y = int(y)
+        arg_1 = int(arg_1)
+        arg_2 = int(arg_2)
+        arg_3 = int(arg_3)
+        arg_4 = int(arg_4)
+
+        if entity_type == "BARREL":
+            entity = Entity(entity_id, x, y)
+            barrels.append(entity)
+        elif entity_type == "MINE":
+            entity = Entity(entity_id, x, y)
+            mines.append(entity)
+        elif entity_type == "SHIP":
+            entity = Ship(entity_id, x, y, arg_1, arg_2, arg_3)
+            if arg_4 == 1:
+                my_ships.append(entity)
+            else:
+                foe_ships.append(entity)
+
+        #print(entity_id, entity_type, x, y, arg_1, arg_2, arg_3, arg_4, file = sys.stderr)
+
+    #print(barrels, file = sys.stderr)
+
+    for my_ship in my_ships:
+        foe_ship = min(foe_ships, key = lambda x: sqare_distance(x, my_ship))
+        foe_distance = sqare_distance(my_ship, foe_ship)
+        direction = DIRECTIONS[foe_ship.y % 2][foe_ship.orientation]
+        speed = foe_ship.speed
+        eta = 1 + round(sqare_distance(my_ship.front, foe_ship)**.5 / 3)
+        future_x, future_y = foe_ship.x + direction.x * speed * eta, foe_ship.y + direction.y * speed * eta
+        if future_x < 0:
+            future_x = 0
+        if future_y < 0:
+            future_y = 0
+
+        target = None
+        if barrels:
+            target = min(barrels, key = lambda x: sqare_distance(x, my_ship))
+        
+        mine = None
+        if mines:
+            mine = min(mines, key = lambda x: sqare_distance(x, my_ship))
+            mine_distance = sqare_distance(my_ship, mine)
+
+        if foe_distance < 5**2:
+            print("FIRE {} {}".format(future_x, future_y))
+        elif mine_distance < 4**2:
+            print("FIRE {} {}".format(mine.x, mine.y))
+            mine_distance = 10**2
+        elif target:
+            print("MOVE {} {}".format(target.x, target.y))
+        else:
+            if foe_distance < 10 ** 2:
+                print("FIRE {} {}".format(future_x, future_y))
+            else:
+                print("MOVE {} {}".format(future_x, future_y))
